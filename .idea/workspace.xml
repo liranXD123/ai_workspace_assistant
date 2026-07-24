@@ -4,14 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0f104385-70c4-4ba9-8722-e47d808b0ba8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/SmartVisionAnalyst.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ai_agent.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/vision_engine.py" afterDir="false" />
+    <list default="true" id="0f104385-70c4-4ba9-8722-e47d808b0ba8" name="Changes" comment="made the vision engine and the prompt">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,25 +22,37 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "liranXD123"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/liranXD123/SmartVision",
+    "accountId": "268ab59b-39d0-4460-982d-cecd1e464ec6"
+  }
+}]]></component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000864937147504" />
-      <entry key="MS500" value="1.1985181760332728" />
-      <entry key="S2" value="2.0859481190522473" />
-      <entry key="S5" value="2.5641430506937875" />
-      <entry key="S10" value="2.8121766170181486" />
-      <entry key="S30" value="3.275951455191731" />
-      <entry key="S60" value="3.6056537557391177" />
-      <entry key="M2" value="4.585984815798645" />
-      <entry key="M5" value="8.68167051168075" />
-      <entry key="M10" value="13.117567280747117" />
-      <entry key="M15" value="15.654484899062073" />
-      <entry key="M30" value="19.979378883335784" />
-      <entry key="H1" value="25.781076903508843" />
-      <entry key="H2" value="32.51026927553034" />
-      <entry key="H4" value="38.05079761477622" />
-      <entry key="D1" value="44.46424370718903" />
-      <entry key="W1" value="45.774753886418175" />
+      <entry key="MS100" value="1.0478206836763535" />
+      <entry key="MS500" value="1.87521960630322" />
+      <entry key="S2" value="4.541065165204426" />
+      <entry key="S5" value="7.262869204889969" />
+      <entry key="S10" value="8.842434837033135" />
+      <entry key="S30" value="10.203215030087293" />
+      <entry key="S60" value="10.590917222652868" />
+      <entry key="M2" value="10.79270498078759" />
+      <entry key="M5" value="10.916534333393551" />
+      <entry key="M10" value="11.00764609216357" />
+      <entry key="M15" value="11.351748153036091" />
+      <entry key="M30" value="14.097647325497489" />
+      <entry key="H1" value="21.167307033388777" />
+      <entry key="H2" value="31.41963677978567" />
+      <entry key="H4" value="41.157094975145526" />
+      <entry key="D1" value="53.77431913569419" />
+      <entry key="W1" value="56.52207724804891" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -68,23 +74,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2559251040841925E-4" />
-      <entry key="MS500" value="0.2912452345181688" />
-      <entry key="S2" value="1.54657826753234" />
-      <entry key="S5" value="2.2814645710118313" />
-      <entry key="S10" value="2.6521972898469803" />
-      <entry key="S30" value="3.2093401777722184" />
-      <entry key="S60" value="3.568102762286361" />
-      <entry key="M2" value="4.565648929685825" />
-      <entry key="M5" value="8.672215181086976" />
-      <entry key="M10" value="13.111235459743146" />
-      <entry key="M15" value="15.649358818685299" />
-      <entry key="M30" value="19.976010071969835" />
-      <entry key="H1" value="25.779029248656375" />
-      <entry key="H2" value="32.509099158431994" />
-      <entry key="H4" value="38.05016227359655" />
-      <entry key="D1" value="44.46412905015313" />
-      <entry key="W1" value="45.77473726290835" />
+      <entry key="MS100" value="1.0042072513821263" />
+      <entry key="MS500" value="1.856273973866337" />
+      <entry key="S2" value="4.514953473908169" />
+      <entry key="S5" value="7.240953229673312" />
+      <entry key="S10" value="8.828076609264812" />
+      <entry key="S30" value="10.197453518956516" />
+      <entry key="S60" value="10.587897869256768" />
+      <entry key="M2" value="10.791159275922015" />
+      <entry key="M5" value="10.91590708743866" />
+      <entry key="M10" value="11.007307130235192" />
+      <entry key="M15" value="11.35141345607438" />
+      <entry key="M30" value="14.097017311810276" />
+      <entry key="H1" value="21.166446227269365" />
+      <entry key="H2" value="31.418875337813322" />
+      <entry key="H4" value="41.156578220893195" />
+      <entry key="D1" value="53.774206637500946" />
+      <entry key="W1" value="56.52206040226217" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo"><![CDATA[{
@@ -127,9 +133,22 @@
       <option name="presentableId" value="Default" />
       <updated>1784899836907</updated>
     </task>
+    <task id="LOCAL-00001" summary="made the vision engine and the prompt">
+      <option name="closed" value="true" />
+      <created>1784916896253</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1784916896253</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="made the vision engine and the prompt" />
+    <option name="LAST_COMMIT_MESSAGE" value="made the vision engine and the prompt" />
   </component>
 </project>
