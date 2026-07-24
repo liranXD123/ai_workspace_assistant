@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0f104385-70c4-4ba9-8722-e47d808b0ba8" name="Changes" comment="made the vision engine and the prompt">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,29 +30,29 @@
 }]]></component>
   <component name="GithubPullRequestsUISettings"><![CDATA[{
   "selectedUrlAndAccountId": {
-    "url": "https://github.com/liranXD123/SmartVision",
+    "url": "https://github.com/liranXD123/ai_workspace_assistant",
     "accountId": "268ab59b-39d0-4460-982d-cecd1e464ec6"
   }
 }]]></component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0478206836763535" />
-      <entry key="MS500" value="1.87521960630322" />
-      <entry key="S2" value="4.541065165204426" />
-      <entry key="S5" value="7.262869204889969" />
-      <entry key="S10" value="8.842434837033135" />
-      <entry key="S30" value="10.203215030087293" />
-      <entry key="S60" value="10.590917222652868" />
-      <entry key="M2" value="10.79270498078759" />
-      <entry key="M5" value="10.916534333393551" />
-      <entry key="M10" value="11.00764609216357" />
-      <entry key="M15" value="11.351748153036091" />
-      <entry key="M30" value="14.097647325497489" />
-      <entry key="H1" value="21.167307033388777" />
-      <entry key="H2" value="31.41963677978567" />
-      <entry key="H4" value="41.157094975145526" />
-      <entry key="D1" value="53.77431913569419" />
-      <entry key="W1" value="56.52207724804891" />
+      <entry key="MS100" value="1.0000000140255232" />
+      <entry key="MS500" value="1.0399694618506545" />
+      <entry key="S2" value="2.9431750521869366" />
+      <entry key="S5" value="8.900850396590538" />
+      <entry key="S10" value="17.921310425280776" />
+      <entry key="S30" value="37.29834187636863" />
+      <entry key="S60" value="53.7265981098519" />
+      <entry key="M2" value="70.9619346602433" />
+      <entry key="M5" value="89.38655507374064" />
+      <entry key="M10" value="99.29724149251527" />
+      <entry key="M15" value="103.68004641727329" />
+      <entry key="M30" value="110.63943223366218" />
+      <entry key="H1" value="119.83415305730624" />
+      <entry key="H2" value="131.47700750837637" />
+      <entry key="H4" value="142.3166987196699" />
+      <entry key="D1" value="156.38742156303093" />
+      <entry key="W1" value="159.46430224964874" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -74,23 +74,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.0042072513821263" />
-      <entry key="MS500" value="1.856273973866337" />
-      <entry key="S2" value="4.514953473908169" />
-      <entry key="S5" value="7.240953229673312" />
-      <entry key="S10" value="8.828076609264812" />
-      <entry key="S30" value="10.197453518956516" />
-      <entry key="S60" value="10.587897869256768" />
-      <entry key="M2" value="10.791159275922015" />
-      <entry key="M5" value="10.91590708743866" />
-      <entry key="M10" value="11.007307130235192" />
-      <entry key="M15" value="11.35141345607438" />
-      <entry key="M30" value="14.097017311810276" />
-      <entry key="H1" value="21.166446227269365" />
-      <entry key="H2" value="31.418875337813322" />
-      <entry key="H4" value="41.156578220893195" />
-      <entry key="D1" value="53.774206637500946" />
-      <entry key="W1" value="56.52206040226217" />
+      <entry key="MS100" value="0.013792234490995408" />
+      <entry key="MS500" value="0.44820598528555866" />
+      <entry key="S2" value="2.6573608461000138" />
+      <entry key="S5" value="8.73210404316003" />
+      <entry key="S10" value="17.806018858910694" />
+      <entry key="S30" value="37.24116493964203" />
+      <entry key="S60" value="53.69200088824224" />
+      <entry key="M2" value="70.94181299667252" />
+      <entry key="M5" value="89.3773526313378" />
+      <entry key="M10" value="99.29232807474766" />
+      <entry key="M15" value="103.67662343957983" />
+      <entry key="M30" value="110.63731468347743" />
+      <entry key="H1" value="119.83257810742744" />
+      <entry key="H2" value="131.47588225482707" />
+      <entry key="H4" value="142.31599132716187" />
+      <entry key="D1" value="156.38727482817484" />
+      <entry key="W1" value="159.46428042870332" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo"><![CDATA[{
@@ -110,7 +110,7 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
