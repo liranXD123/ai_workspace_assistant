@@ -62,7 +62,6 @@ def generate_end_of_session_report(session_data):
     )
 
     try:
-        # שימוש במחלקה המעודכנת OllamaLLM
         llm = OllamaLLM(model="llama3")
         formatted_prompt = prompt.format(
             bad_posture_seconds=session_data['metrics']['bad_posture_seconds'],
@@ -124,17 +123,22 @@ last_event_time = time.time()
 last_notification_time = 0
 
 is_away = False
+is_on_break = False  # ✅ מוגדר פה מחוץ ל-while כדי לשמור על ה-State!
 
 print("=" * 60)
 print("🚀 AI Workspace Assistant Engine is Running!")
 print("1. שב ישר ולחץ 'c' במקלדת לכיול.")
-print("2. בסיום הסשן לחץ 'q' לקבלת דוח AI אוטומטי ואיפוס הנתונים.")
+print("2. לחץ 'b' לכניסה/יציאה מהפסקה (Break).")
+print("3. בסיום הסשן לחץ 'q' לקבלת דוח AI אוטומטי ואיפוס הנתונים.")
 print("=" * 60)
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
+
+    # תפיסת מקש מקלדת פעם אחת בלבד לכל הפעולות בפריים הנוכחי
+    key = cv2.waitKey(1) & 0xFF
 
     current_time = time.time()
     dt = current_time - last_frame_time
@@ -157,7 +161,6 @@ while cap.isOpened():
     if pose_results.keypoints is not None and len(pose_results.keypoints.data) > 0:
         kpts = pose_results.keypoints.data[0].cpu().numpy()
 
-        # אינדקסים ב-COCO Pose: 0=Nose, 1=L_Eye, 2=R_Eye, 3=L_Ear, 4=R_Ear, 5=L_Shoulder, 6=R_Shoulder
         if len(kpts) >= 7 and kpts[5][2] > 0.4 and kpts[6][2] > 0.4:
             person_detected = True
 
@@ -168,7 +171,7 @@ while cap.isOpened():
             curr_shoulder_y = (l_sh[1] + r_sh[1]) / 2
             curr_shoulder_width = np.linalg.norm(l_sh - r_sh)
 
-            key = cv2.waitKey(1) & 0xFF
+            # מקש 'c' לכיול
             if key == ord('c'):
                 base_nose_y = nose_y
                 base_shoulder_y = curr_shoulder_y
@@ -177,47 +180,43 @@ while cap.isOpened():
                 print("[CALIBRATION] יציבה כוילה בהצלחה!")
                 send_os_notification("Calibration Complete", "Your posture baseline has been set successfully.")
 
-            # --- בדיקת יציבה ---
+            # --- בדיקת יציבה (רק אם לא בהפסקה) ---
             if is_calibrated:
                 nose_drop = (nose_y - base_nose_y) / base_shoulder_width
                 shoulder_drop = (curr_shoulder_y - base_shoulder_y) / base_shoulder_width
                 width_change = abs(curr_shoulder_width - base_shoulder_width) / base_shoulder_width
 
-                if nose_drop > POSTURE_SENSITIVITY or shoulder_drop > POSTURE_SENSITIVITY or width_change > (
-                        POSTURE_SENSITIVITY * 1.5):
+                if nose_drop > POSTURE_SENSITIVITY or shoulder_drop > POSTURE_SENSITIVITY or width_change > (POSTURE_SENSITIVITY * 1.5):
                     is_bad_posture = True
                     posture_status = "BAD POSTURE"
                     posture_color = (50, 50, 255)
-                    total_bad_posture_time += dt
+                    if not is_on_break:
+                        total_bad_posture_time += dt
 
-            # --- בדיקת מבט משודרגת (3D Look-Away: למעלה/למטה + צדדים) ---
+            # --- בדיקת מבט (רק אם לא בהפסקה) ---
             if kpts[0][2] > 0.4 and kpts[1][2] > 0.4 and kpts[2][2] > 0.4:
                 eyes_center_x = (l_eye[0] + r_eye[0]) / 2
                 eyes_center_y = (l_eye[1] + r_eye[1]) / 2
                 eye_distance = abs(r_eye[0] - l_eye[0])
 
                 if eye_distance > 0:
-                    # 1. חישוב מבט אנכי (למעלה/למטה - Vertical Pitch)
                     eye_nose_dist_y = nose_y - eyes_center_y
                     eye_nose_ratio_y = eye_nose_dist_y / curr_shoulder_width
                     is_vertical_away = eye_nose_ratio_y < 0.03 or eye_nose_ratio_y > 0.22
 
-                    # 2. חישוב מבט אופקי (צדדים - Horizontal Yaw)
-                    # יחס המרחק האופקי של האף ממרכז העיניים ביחס למרחק בין העיניים
                     nose_offset_x = abs(nose_x - eyes_center_x)
                     horizontal_ratio = nose_offset_x / eye_distance
-
-                    # אם האף זז הצידה יותר מ-35% ממרכז העיניים, או שאחת העיניים נעלמת/מוסתרת בגלל סיבוב ראש
                     is_horizontal_away = horizontal_ratio > 0.35
 
                     if is_vertical_away or is_horizontal_away:
                         is_looking_away = True
-                        total_looking_away_time += dt
+                        if not is_on_break:
+                            total_looking_away_time += dt
 
     # ----------------------------------------------
     #  B. מעקב קימה מהכיסא
     # ----------------------------------------------
-    if not person_detected:
+    if not person_detected and not is_on_break:
         if not is_away:
             is_away = True
         else:
@@ -235,14 +234,15 @@ while cap.isOpened():
         conf = float(box.conf[0])
         if cls_id == 67 and conf > 0.4:
             phone_detected = True
-            total_phone_time += dt
+            if not is_on_break:
+                total_phone_time += dt
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (50, 50, 255), 2)
 
     # ----------------------------------------------
     #  D. התראות קופצות בלייב
     # ----------------------------------------------
-    if current_time - last_notification_time > NOTIFICATION_COOLDOWN:
+    if not is_on_break and (current_time - last_notification_time > NOTIFICATION_COOLDOWN):
         if is_bad_posture:
             send_os_notification("Posture Warning", "Bad posture detected! Please sit up straight.")
             last_notification_time = current_time
@@ -273,10 +273,9 @@ while cap.isOpened():
         last_event_time = current_time
 
     # ----------------------------------------------
-    #  F. הצגת טקסטים על המסך (נקי ללא צלליות)
+    #  F. הצגת טקסטים על המסך
     # ----------------------------------------------
-    draw_text_clean(annotated_frame, f"Posture: {posture_status}", (20, 30), font_scale=0.65, color=posture_color,
-                    thickness=2)
+    draw_text_clean(annotated_frame, f"Posture: {posture_status}", (20, 30), font_scale=0.65, color=posture_color, thickness=2)
 
     phone_str = "PHONE IN USE" if phone_detected else "No Phone"
     draw_text_clean(annotated_frame, f"Phone: {phone_str}", (20, 55), font_scale=0.6,
@@ -288,21 +287,25 @@ while cap.isOpened():
 
     right_x = annotated_frame.shape[1] - 240
     draw_text_clean(annotated_frame, "--- SESSION ANALYTICS ---", (right_x, 30), font_scale=0.5, color=(200, 200, 200))
-    draw_text_clean(annotated_frame, f"Bad Posture: {int(total_bad_posture_time)}s", (right_x, 50), font_scale=0.55,
-                    color=(0, 215, 255))
-    draw_text_clean(annotated_frame, f"Phone Time:  {int(total_phone_time)}s", (right_x, 70), font_scale=0.55,
-                    color=(0, 215, 255))
-    draw_text_clean(annotated_frame, f"Look Away:   {int(total_looking_away_time)}s", (right_x, 90), font_scale=0.55,
-                    color=(0, 215, 255))
-    draw_text_clean(annotated_frame, f"Away Desk:   {int(total_away_time)}s", (right_x, 110), font_scale=0.55,
-                    color=(0, 215, 255))
+    draw_text_clean(annotated_frame, f"Bad Posture: {int(total_bad_posture_time)}s", (right_x, 50), font_scale=0.55, color=(0, 215, 255))
+    draw_text_clean(annotated_frame, f"Phone Time:  {int(total_phone_time)}s", (right_x, 70), font_scale=0.55, color=(0, 215, 255))
+    draw_text_clean(annotated_frame, f"Look Away:   {int(total_looking_away_time)}s", (right_x, 90), font_scale=0.55, color=(0, 215, 255))
+    draw_text_clean(annotated_frame, f"Away Desk:   {int(total_away_time)}s", (right_x, 110), font_scale=0.55, color=(0, 215, 255))
 
-    cv2.imshow('AI Workspace - Full Analytics Engine', annotated_frame)
+    # הצגת הודעת Break על המסך
+    if is_on_break:
+        draw_text_clean(annotated_frame, "STATUS: ON BREAK (Press 'b' to Resume)", (20, 110), font_scale=0.6, color=(255, 165, 0), thickness=2)
 
     # ----------------------------------------------
-    #  G. יציאה, הפקת דוח אוטומטי ואיפוס (מקש 'q')
+    #  G. טיפול בלחיצות מקלדת (Break & Quit)
     # ----------------------------------------------
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('b'):
+        is_on_break = not is_on_break
+        status_msg = "On Break" if is_on_break else "Working"
+        print(f"[STATE CHANGE] {status_msg}")
+        send_os_notification("Session Status", status_msg)
+
+    if key == ord('q'):
         final_data = {
             "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
             "metrics": {
@@ -316,6 +319,8 @@ while cap.isOpened():
         generate_end_of_session_report(final_data)
         reset_session_log()
         break
+
+    cv2.imshow('AI Workspace - Full Analytics Engine', annotated_frame)
 
 cap.release()
 cv2.destroyAllWindows()
