@@ -10,7 +10,7 @@ from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 
 # ------------------------------------------------------------------------------
-# 1. Page Configuration (Must be the first Streamlit command)
+# 1. Page Configuration
 # ------------------------------------------------------------------------------
 st.set_page_config(
     page_title="AI Workspace Assistant",
@@ -18,14 +18,16 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # ------------------------------------------------------------------------------
-# 2. Model & Resource Loading (Cached to avoid reloading on reruns)
+# 2. Model & Resource Loading (Cached)
 # ------------------------------------------------------------------------------
 @st.cache_resource
 def load_yolo_models():
     pose = YOLO('yolov8n-pose.pt')
     detect = YOLO('yolov8n.pt')
     return pose, detect
+
 
 pose_model, detect_model = load_yolo_models()
 
@@ -56,6 +58,10 @@ if "metrics" not in st.session_state:
 if "ai_report" not in st.session_state:
     st.session_state.ai_report = None
 
+if "request_calibration" not in st.session_state:
+    st.session_state.request_calibration = False
+
+
 # ------------------------------------------------------------------------------
 # 4. Helper Functions
 # ------------------------------------------------------------------------------
@@ -70,9 +76,11 @@ def send_os_notification(title, message):
     except Exception as e:
         print(f"[Notification Error] {e}")
 
+
 def draw_text_clean(img, text, pos, font_scale=0.55, color=(255, 255, 255), thickness=1):
     x, y = pos
     cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
 
 def generate_end_of_session_report():
     template = """
@@ -93,8 +101,16 @@ def generate_end_of_session_report():
         input_variables=["bad_posture_seconds", "phone_seconds", "looking_away_seconds", "away_from_desk_seconds"],
         template=template
     )
+
+    # Reads environment variable if running in Docker, falls back to localhost
+    ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
     try:
-        llm = OllamaLLM(model="llama3")
+        # Switched to llama3.2:3b to prevent CPU/RAM buffer allocation errors
+        llm = OllamaLLM(
+            model="llama3.2:3b",
+            base_url=ollama_base_url
+        )
         formatted_prompt = prompt.format(
             bad_posture_seconds=int(st.session_state.total_bad_posture),
             phone_seconds=int(st.session_state.total_phone),
@@ -106,79 +122,96 @@ def generate_end_of_session_report():
     except Exception as e:
         st.session_state.ai_report = f"❌ Error generating AI report: {e}"
 
+
 # ------------------------------------------------------------------------------
-# 5. UI Layout - Title & Sidebar
+# 5. Header Layout
 # ------------------------------------------------------------------------------
 st.title("🤖 AI Workspace & Ergonomics Assistant")
 st.markdown("Real-time Computer Vision & LLM Productivity Dashboard")
 st.divider()
 
-st.sidebar.header("🕹️ Session Controls")
-
-# Start / Stop Session Button
-if not st.session_state.is_running:
-    if st.sidebar.button("▶️ Start Session", use_container_width=True):
-        st.session_state.is_running = True
-        st.session_state.ai_report = None
-        st.rerun()
-else:
-    if st.sidebar.button("⏹️ End Session & Get Report", use_container_width=True):
-        st.session_state.is_running = False
-        with st.spinner("Generating AI Executive Report via Ollama..."):
-            generate_end_of_session_report()
-        st.rerun()
-
-# Calibration Button
-if st.sidebar.button("🎯 Calibrate Posture", use_container_width=True):
-    st.session_state.request_calibration = True
-
-# Break Toggle Button
-break_label = "💪 Resume Work" if st.session_state.is_on_break else "☕ Take a Break"
-if st.sidebar.button(break_label, use_container_width=True):
-    st.session_state.is_on_break = not st.session_state.is_on_break
-    status = "On Break" if st.session_state.is_on_break else "Working"
-    send_os_notification("Session Status", f"Status changed to: {status}")
-
-# Reset Metrics Button
-if st.sidebar.button("🧹 Reset Metrics", use_container_width=True):
-    st.session_state.total_bad_posture = 0.0
-    st.session_state.total_phone = 0.0
-    st.session_state.total_looking_away = 0.0
-    st.session_state.total_away = 0.0
-    st.session_state.is_calibrated = False
-    st.session_state.ai_report = None
-    st.sidebar.success("Metrics reset successfully!")
-
 # ------------------------------------------------------------------------------
-# 6. Main Dashboard Layout
+# 6. Main Layout - 2 Columns (Stream vs Analytics)
 # ------------------------------------------------------------------------------
 col_video, col_metrics = st.columns([2, 1])
 
 with col_video:
-    st.subheader("📹 Live Video Stream")
+    st.subheader("📹 Live Feed & Controls")
+
+    # Video Frame Target
     video_placeholder = st.empty()
+
+    # --- IN-LINE CONTROL PANEL (Directly beneath video feed) ---
+    st.markdown("##### 🎛️ Session Controls")
+    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+
+    with btn_col1:
+        if not st.session_state.is_running:
+            if st.button("▶️ Start", use_container_width=True, type="primary"):
+                st.session_state.is_running = True
+                st.session_state.ai_report = None
+                st.rerun()
+        else:
+            if st.button("⏹️ Stop & Report", use_container_width=True, type="primary"):
+                st.session_state.is_running = False
+                with st.spinner("Generating AI Report via Ollama..."):
+                    generate_end_of_session_report()
+                st.rerun()
+
+    with btn_col2:
+        if st.button("🎯 Calibrate", use_container_width=True, disabled=not st.session_state.is_running):
+            st.session_state.request_calibration = True
+
+    with btn_col3:
+        break_label = "💪 Resume" if st.session_state.is_on_break else "☕ Break"
+        if st.button(break_label, use_container_width=True, disabled=not st.session_state.is_running):
+            st.session_state.is_on_break = not st.session_state.is_on_break
+            status = "On Break" if st.session_state.is_on_break else "Working"
+            send_os_notification("Session Status", f"Status changed to: {status}")
+            st.rerun()
+
+    with btn_col4:
+        if st.button("🧹 Reset", use_container_width=True):
+            st.session_state.total_bad_posture = 0.0
+            st.session_state.total_phone = 0.0
+            st.session_state.total_looking_away = 0.0
+            st.session_state.total_away = 0.0
+            st.session_state.is_calibrated = False
+            st.session_state.ai_report = None
+            st.rerun()
 
 with col_metrics:
     st.subheader("📊 Session Analytics")
+
+    # Real-time Status Banner
+    if not st.session_state.is_running:
+        st.info("🔴 Status: Session Inactive")
+    elif st.session_state.is_on_break:
+        st.warning("☕ Status: On Break (Metrics Paused)")
+    elif not st.session_state.is_calibrated:
+        st.error("⚠️ Status: Active - Calibration Needed!")
+    else:
+        st.success("🟢 Status: Active & Tracking")
+
+    st.markdown("---")
     metric_posture = st.empty()
     metric_phone = st.empty()
     metric_gaze = st.empty()
     metric_away = st.empty()
 
-# Render AI Summary Report at the bottom if generated
+# Render AI Report below layout if present
 if st.session_state.ai_report:
     st.divider()
-    st.subheader("📊 AI Executive Summary Report")
+    st.subheader("📊 End-of-Session AI Summary Report")
     st.info(st.session_state.ai_report)
 
 # ------------------------------------------------------------------------------
-# 7. Live Vision Loop (Runs when session is active)
+# 7. Vision Processing Loop
 # ------------------------------------------------------------------------------
 if st.session_state.is_running:
     cap = cv2.VideoCapture(0)
     last_frame_time = time.time()
     last_notification_time = 0
-    is_away = False
 
     while cap.isOpened() and st.session_state.is_running:
         ret, frame = cap.read()
@@ -195,7 +228,7 @@ if st.session_state.is_running:
         is_bad_posture = False
         is_looking_away = False
 
-        # --- A. Pose & Gaze Analysis ---
+        # --- Pose Analysis ---
         pose_results = pose_model(frame, verbose=False)[0]
         annotated_frame = pose_results.plot()
 
@@ -211,8 +244,8 @@ if st.session_state.is_running:
                 curr_shoulder_y = (l_sh[1] + r_sh[1]) / 2
                 curr_shoulder_width = np.linalg.norm(l_sh - r_sh)
 
-                # Handle Calibration Request from UI
-                if getattr(st.session_state, "request_calibration", False):
+                # Process Calibration
+                if st.session_state.request_calibration:
                     st.session_state.base_nose_y = nose_y
                     st.session_state.base_shoulder_y = curr_shoulder_y
                     st.session_state.base_shoulder_width = curr_shoulder_width
@@ -220,19 +253,20 @@ if st.session_state.is_running:
                     st.session_state.request_calibration = False
                     send_os_notification("Calibration Complete", "Posture baseline set successfully.")
 
-                # Posture Evaluation
+                # Evaluate Posture
                 if st.session_state.is_calibrated:
                     b_width = st.session_state.base_shoulder_width
                     nose_drop = (nose_y - st.session_state.base_nose_y) / b_width
                     shoulder_drop = (curr_shoulder_y - st.session_state.base_shoulder_y) / b_width
                     width_change = abs(curr_shoulder_width - b_width) / b_width
 
-                    if nose_drop > POSTURE_SENSITIVITY or shoulder_drop > POSTURE_SENSITIVITY or width_change > (POSTURE_SENSITIVITY * 1.5):
+                    if nose_drop > POSTURE_SENSITIVITY or shoulder_drop > POSTURE_SENSITIVITY or width_change > (
+                            POSTURE_SENSITIVITY * 1.5):
                         is_bad_posture = True
                         if not st.session_state.is_on_break:
                             st.session_state.total_bad_posture += dt
 
-                # Gaze Evaluation
+                # Evaluate Gaze
                 if kpts[0][2] > 0.4 and kpts[1][2] > 0.4 and kpts[2][2] > 0.4:
                     eyes_center_x = (l_eye[0] + r_eye[0]) / 2
                     eyes_center_y = (l_eye[1] + r_eye[1]) / 2
@@ -250,11 +284,11 @@ if st.session_state.is_running:
                             if not st.session_state.is_on_break:
                                 st.session_state.total_looking_away += dt
 
-        # --- B. Away From Desk Tracking ---
+        # --- Away Tracking ---
         if not person_detected and not st.session_state.is_on_break:
             st.session_state.total_away += dt
 
-        # --- C. Phone Detection ---
+        # --- Phone Detection ---
         detect_results = detect_model(frame, verbose=False)[0]
         for box in detect_results.boxes:
             cls_id = int(box.cls[0])
@@ -266,7 +300,7 @@ if st.session_state.is_running:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (50, 50, 255), 2)
 
-        # --- D. OS Notifications ---
+        # --- Notifications ---
         if not st.session_state.is_on_break and (current_time - last_notification_time > NOTIFICATION_COOLDOWN):
             if is_bad_posture:
                 send_os_notification("Posture Warning", "Bad posture detected! Please sit up straight.")
@@ -275,15 +309,15 @@ if st.session_state.is_running:
                 send_os_notification("Distraction Warning", "Phone detected! Put your phone away.")
                 last_notification_time = current_time
 
-        # --- E. UI Rendering Updates ---
+        # --- Frame Overlay ---
         if st.session_state.is_on_break:
-            draw_text_clean(annotated_frame, "STATUS: ON BREAK ☕", (20, 40), font_scale=0.7, color=(255, 165, 0), thickness=2)
+            draw_text_clean(annotated_frame, "STATUS: ON BREAK ☕", (20, 40), font_scale=0.7, color=(255, 165, 0),
+                            thickness=2)
 
-        # Convert BGR frame (OpenCV) to RGB (Streamlit requirement)
+        # Render Frame & Metrics
         frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
         video_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
 
-        # Update Metrics Cards in Real-time
         metric_posture.metric("Bad Posture Time", f"{int(st.session_state.total_bad_posture)}s")
         metric_phone.metric("Phone Usage Time", f"{int(st.session_state.total_phone)}s")
         metric_gaze.metric("Looking Away Time", f"{int(st.session_state.total_looking_away)}s")
