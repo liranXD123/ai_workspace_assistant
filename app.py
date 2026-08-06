@@ -1,22 +1,27 @@
 import cv2
 import numpy as np
 import time
-import json
 import os
+import bcrypt
 import streamlit as st
 from ultralytics import YOLO
 from plyer import notification
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 
+import database as db
+
 # ------------------------------------------------------------------------------
-# 1. Page Configuration
+# 1. Page Configuration & Database Initialization
 # ------------------------------------------------------------------------------
 st.set_page_config(
     page_title="AI Workspace Assistant",
     page_icon="🤖",
     layout="wide"
 )
+
+# Initialize database schema on startup
+db.init_db()
 
 
 # ------------------------------------------------------------------------------
@@ -37,6 +42,9 @@ NOTIFICATION_COOLDOWN = 10
 # ------------------------------------------------------------------------------
 # 3. Session State Initialization
 # ------------------------------------------------------------------------------
+if "logged_in_user" not in st.session_state:
+    st.session_state.logged_in_user = None  # Holds dict: {"id": int, "username": str}
+
 if "is_calibrated" not in st.session_state:
     st.session_state.is_calibrated = False
     st.session_state.base_nose_y = 0
@@ -49,7 +57,7 @@ if "is_on_break" not in st.session_state:
 if "is_running" not in st.session_state:
     st.session_state.is_running = False
 
-if "metrics" not in st.session_state:
+if "total_bad_posture" not in st.session_state:
     st.session_state.total_bad_posture = 0.0
     st.session_state.total_phone = 0.0
     st.session_state.total_looking_away = 0.0
@@ -102,11 +110,9 @@ def generate_end_of_session_report():
         template=template
     )
 
-    # Reads environment variable if running in Docker, falls back to localhost
     ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
     try:
-        # Switched to llama3.2:3b to prevent CPU/RAM buffer allocation errors
         llm = OllamaLLM(
             model="llama3.2:3b",
             base_url=ollama_base_url
@@ -119,91 +125,202 @@ def generate_end_of_session_report():
         )
         report = llm.invoke(formatted_prompt)
         st.session_state.ai_report = report
+
+        # Auto-save session to SQLite DB for logged-in user
+        if st.session_state.logged_in_user:
+            db.save_session(
+                user_id=st.session_state.logged_in_user["id"],
+                bad_posture=int(st.session_state.total_bad_posture),
+                phone=int(st.session_state.total_phone),
+                looking_away=int(st.session_state.total_looking_away),
+                away=int(st.session_state.total_away),
+                ai_report=report
+            )
     except Exception as e:
         st.session_state.ai_report = f"❌ Error generating AI report: {e}"
 
 
 # ------------------------------------------------------------------------------
-# 5. Header Layout
+# 5. Header & Authentication View
 # ------------------------------------------------------------------------------
 st.title("🤖 AI Workspace & Ergonomics Assistant")
 st.markdown("Real-time Computer Vision & LLM Productivity Dashboard")
 st.divider()
 
+# --- LOGIN / SIGNUP PORTAL (If user is NOT logged in) ---
+if not st.session_state.logged_in_user:
+    st.subheader("🔒 Authentication Required")
+    auth_tab_login, auth_tab_signup = st.tabs(["🔑 Login", "📝 Sign Up"])
+
+    with auth_tab_login:
+        st.markdown("##### Log in to access your dashboard")
+        login_user = st.text_input("Username", key="login_user_input")
+        login_pass = st.text_input("Password", type="password", key="login_pass_input")
+
+        if st.button("Log In", type="primary"):
+            if login_user and login_pass:
+                user_record = db.get_user_by_username(login_user)
+                if user_record:
+                    # tuple structure: (ID, username, password_hash, created_at)
+                    user_id, uname, stored_hash, _ = user_record
+                    if bcrypt.checkpw(login_pass.encode('utf-8'), stored_hash.encode('utf-8')):
+                        st.session_state.logged_in_user = {"id": user_id, "username": uname}
+                        st.success(f"Welcome back, {uname}!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+                else:
+                    st.error("Invalid username or password.")
+            else:
+                st.warning("Please enter both username and password.")
+
+    with auth_tab_signup:
+        st.markdown("##### Create a new account")
+        signup_user = st.text_input("Choose Username", key="signup_user_input")
+        signup_pass = st.text_input("Choose Password", type="password", key="signup_pass_input")
+        signup_pass_confirm = st.text_input("Confirm Password", type="password", key="signup_pass_confirm_input")
+
+        if st.button("Sign Up"):
+            if signup_user and signup_pass:
+                if signup_pass != signup_pass_confirm:
+                    st.error("Passwords do not match!")
+                elif len(signup_pass) < 6:
+                    st.warning("Password must be at least 6 characters long.")
+                else:
+                    # Hash password using bcrypt before saving
+                    hashed_bytes = bcrypt.hashpw(signup_pass.encode('utf-8'), bcrypt.gensalt())
+                    hashed_str = hashed_bytes.decode('utf-8')
+
+                    success = db.create_user(signup_user, hashed_str)
+                    if success:
+                        st.success("Account created successfully! You can now log in.")
+                    else:
+                        st.error("Username already taken. Please choose another one.")
+            else:
+                st.warning("Please fill in all fields.")
+
+    st.stop()  # Stop execution until user logs in
+
 # ------------------------------------------------------------------------------
-# 6. Main Layout - 2 Columns (Stream vs Analytics)
+# 6. Main Dashboard View (For Authenticated Users)
 # ------------------------------------------------------------------------------
-col_video, col_metrics = st.columns([2, 1])
+col_user_info, col_logout = st.columns([4, 1])
+with col_user_info:
+    st.success(f"👤 Logged in as: **{st.session_state.logged_in_user['username']}**")
+with col_logout:
+    if st.button("🚪 Log Out", use_container_width=True):
+        st.session_state.logged_in_user = None
+        st.session_state.is_running = False
+        st.rerun()
 
-with col_video:
-    st.subheader("📹 Live Feed & Controls")
+# Define Main Tabs
+main_tab_tracker, main_tab_history = st.tabs(["📹 Live Workspace Tracker", "📊 Session History"])
 
-    # Video Frame Target
-    video_placeholder = st.empty()
+# ------------------------------------------------------------------------------
+# TAB 1: Live Workspace Tracker
+# ------------------------------------------------------------------------------
+with main_tab_tracker:
+    col_video, col_metrics = st.columns([2, 1])
 
-    # --- IN-LINE CONTROL PANEL (Directly beneath video feed) ---
-    st.markdown("##### 🎛️ Session Controls")
-    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+    with col_video:
+        st.subheader("📹 Live Feed & Controls")
 
-    with btn_col1:
-        if not st.session_state.is_running:
-            if st.button("▶️ Start", use_container_width=True, type="primary"):
-                st.session_state.is_running = True
+        # Video Frame Target
+        video_placeholder = st.empty()
+
+        # --- IN-LINE CONTROL PANEL ---
+        st.markdown("##### 🎛️ Session Controls")
+        btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+
+        with btn_col1:
+            if not st.session_state.is_running:
+                if st.button("▶️ Start", use_container_width=True, type="primary"):
+                    st.session_state.is_running = True
+                    st.session_state.ai_report = None
+                    st.rerun()
+            else:
+                if st.button("⏹️ Stop & Report", use_container_width=True, type="primary"):
+                    st.session_state.is_running = False
+                    with st.spinner("Generating AI Report & saving session to database..."):
+                        generate_end_of_session_report()
+                    st.rerun()
+
+        with btn_col2:
+            if st.button("🎯 Calibrate", use_container_width=True, disabled=not st.session_state.is_running):
+                st.session_state.request_calibration = True
+
+        with btn_col3:
+            break_label = "💪 Resume" if st.session_state.is_on_break else "☕ Break"
+            if st.button(break_label, use_container_width=True, disabled=not st.session_state.is_running):
+                st.session_state.is_on_break = not st.session_state.is_on_break
+                status = "On Break" if st.session_state.is_on_break else "Working"
+                send_os_notification("Session Status", f"Status changed to: {status}")
+                st.rerun()
+
+        with btn_col4:
+            if st.button("🧹 Reset", use_container_width=True):
+                st.session_state.total_bad_posture = 0.0
+                st.session_state.total_phone = 0.0
+                st.session_state.total_looking_away = 0.0
+                st.session_state.total_away = 0.0
+                st.session_state.is_calibrated = False
                 st.session_state.ai_report = None
                 st.rerun()
+
+    with col_metrics:
+        st.subheader("📊 Session Analytics")
+
+        # Real-time Status Banner
+        if not st.session_state.is_running:
+            st.info("🔴 Status: Session Inactive")
+        elif st.session_state.is_on_break:
+            st.warning("☕ Status: On Break (Metrics Paused)")
+        elif not st.session_state.is_calibrated:
+            st.error("⚠️ Status: Active - Calibration Needed!")
         else:
-            if st.button("⏹️ Stop & Report", use_container_width=True, type="primary"):
-                st.session_state.is_running = False
-                with st.spinner("Generating AI Report via Ollama..."):
-                    generate_end_of_session_report()
-                st.rerun()
+            st.success("🟢 Status: Active & Tracking")
 
-    with btn_col2:
-        if st.button("🎯 Calibrate", use_container_width=True, disabled=not st.session_state.is_running):
-            st.session_state.request_calibration = True
+        st.markdown("---")
+        metric_posture = st.empty()
+        metric_phone = st.empty()
+        metric_gaze = st.empty()
+        metric_away = st.empty()
 
-    with btn_col3:
-        break_label = "💪 Resume" if st.session_state.is_on_break else "☕ Break"
-        if st.button(break_label, use_container_width=True, disabled=not st.session_state.is_running):
-            st.session_state.is_on_break = not st.session_state.is_on_break
-            status = "On Break" if st.session_state.is_on_break else "Working"
-            send_os_notification("Session Status", f"Status changed to: {status}")
-            st.rerun()
+    # Banner & AI Report display inside Tracker Tab
+    if st.session_state.ai_report:
+        st.divider()
+        st.success("✅ **Session saved!** Click on the **📊 Session History** tab above to view all past records.")
+        st.subheader("📊 Latest AI Summary Report")
+        st.info(st.session_state.ai_report)
 
-    with btn_col4:
-        if st.button("🧹 Reset", use_container_width=True):
-            st.session_state.total_bad_posture = 0.0
-            st.session_state.total_phone = 0.0
-            st.session_state.total_looking_away = 0.0
-            st.session_state.total_away = 0.0
-            st.session_state.is_calibrated = False
-            st.session_state.ai_report = None
-            st.rerun()
+# ------------------------------------------------------------------------------
+# TAB 2: Session History
+# ------------------------------------------------------------------------------
+with main_tab_history:
+    st.subheader("📜 Your Past Work Sessions")
+    user_sessions = db.get_user_sessions(st.session_state.logged_in_user["id"])
 
-with col_metrics:
-    st.subheader("📊 Session Analytics")
-
-    # Real-time Status Banner
-    if not st.session_state.is_running:
-        st.info("🔴 Status: Session Inactive")
-    elif st.session_state.is_on_break:
-        st.warning("☕ Status: On Break (Metrics Paused)")
-    elif not st.session_state.is_calibrated:
-        st.error("⚠️ Status: Active - Calibration Needed!")
+    if not user_sessions:
+        st.info("No recorded sessions found yet. Start a session in the live tracker tab!")
     else:
-        st.success("🟢 Status: Active & Tracking")
+        # Loop through sessions, expand the first (latest) session automatically
+        for idx, sess in enumerate(user_sessions):
+            sess_id, timestamp, bad_posture, phone, looking_away, away, report = sess
 
-    st.markdown("---")
-    metric_posture = st.empty()
-    metric_phone = st.empty()
-    metric_gaze = st.empty()
-    metric_away = st.empty()
+            # expanded=True for index 0 keeps the newest session open by default
+            is_latest = (idx == 0)
+            label_prefix = "⭐ [LATEST SESSION]" if is_latest else "🗓️"
 
-# Render AI Report below layout if present
-if st.session_state.ai_report:
-    st.divider()
-    st.subheader("📊 End-of-Session AI Summary Report")
-    st.info(st.session_state.ai_report)
+            with st.expander(f"{label_prefix} Session #{sess_id} — {timestamp}", expanded=is_latest):
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Bad Posture", f"{bad_posture}s")
+                c2.metric("Phone Time", f"{phone}s")
+                c3.metric("Looking Away", f"{looking_away}s")
+                c4.metric("Away From Desk", f"{away}s")
+
+                st.markdown("---")
+                st.markdown("**🤖 AI Executive Summary:**")
+                st.write(report if report else "No AI report generated for this session.")
 
 # ------------------------------------------------------------------------------
 # 7. Vision Processing Loop
