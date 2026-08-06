@@ -1,17 +1,42 @@
-# 🤖 Smart Vision Workspace & Productivity Assistant
+# 🤖 AI Workspace & Ergonomics Assistant
 
-An end-to-end AI-powered desktop application that analyzes ergonomics, posture, and distractions in real-time using Computer Vision and generates LLM-backed session reports.
+An end-to-end, privacy-focused Edge AI desktop application that monitors user posture, gaze direction, and workspace distractions in real time. It delivers automated executive performance summaries using a local LLM and securely persists multi-tenant session history.
 
-## ✨ Features
-- **Real-Time Vision Analytics:** Powered by YOLOv8 Pose and Object Detection.
-- **Dynamic Posture Calibration:** Personalized Baseline tracking for posture, slouching, and head-tilt.
-- **Multi-Metric Tracker:** Tracks Bad Posture, Phone Usage, Looking Away (Pitch & Yaw), and Time Away from Desk.
-- **System Pop-Up Notifications:** OS alerts when posture or distraction thresholds are breached.
-- **Automated Local AI Reports:** LangChain & Ollama integration to deliver instant executive productivity and ergonomic reports upon session termination.
+---
 
-## 🚀 Quick Start
+## 🌟 Key Features
 
-1. **Clone the repository:**
-   ```bash
-   git clone <YOUR_REPOSITORY_URL>
-   cd SmartVisionAnalyst
+- **Real-Time Computer Vision:** Pose estimation and phone detection powered by YOLOv8 and OpenCV.
+- **Dynamic Posture & Gaze Calibration:** 3D head yaw/pitch ratio estimation and slouch detection normalized to dynamic user baselines.
+- **Local LLM Executive Summaries:** Generates structured end-of-session feedback reports locally using Ollama (`llama3.2:3b`) and LangChain.
+- **Multi-Tenant Security:** Full signup/login authentication using `bcrypt` password hashing and 100% parameterized SQL queries (immune to SQL Injection).
+- **Session History Dashboard:** Persistent session tracking backed by SQLite with automatic high-priority expanding for recent records.
+- **One-Command Orchestration:** Containerized via Docker & Docker Compose for zero-config deployment.
+
+---
+
+## 🏗️ Architecture & Tech Stack
+[ Webcam Feed ] ──> [ YOLOv8 Pose / Object ] ──> [ OpenCV Geometry Engine ]
+│
+▼
+[ SQLite DB ] <── [ Secure Auth / Session ] <── [ Streamlit Dashboard ]
+│
+▼
+[ Ollama (llama3.2:3b) ]
+
+- **Frontend / UI:** Streamlit
+- **Vision Engine:** OpenCV, Ultralytics YOLOv8 (`yolov8n-pose`, `yolov8n`)
+- **LLM Engine:** Ollama, LangChain
+- **Backend & Database:** SQLite3, `bcrypt`
+- **Containerization:** Docker, Docker Compose
+
+---
+
+## 🚀 Quickstart Guide
+
+### Option 1: Running with Docker Compose (Recommended)
+
+Make sure [Docker Desktop](https://www.docker.com/) is installed and running, then execute:
+
+```bash
+docker-compose up -d
