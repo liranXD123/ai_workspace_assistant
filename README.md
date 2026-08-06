@@ -33,6 +33,12 @@ An end-to-end, privacy-focused Edge AI desktop application that monitors user po
 ---
 
 ## 🚀 Quickstart Guide
+### Option 1: Running with Docker Compose (Recommended)
+
+Make sure [Docker Desktop](https://www.docker.com/) is installed and running, then execute:
+
+```bash
+docker-compose up -d
 
 ### Option 1: Running with Docker Compose (Recommended)
 
