@@ -37,12 +37,57 @@ An end-to-end, privacy-focused Edge AI desktop application that monitors user po
 
 Make sure [Docker Desktop](https://www.docker.com/) is installed and running, then execute:
 
-```bash
+bash
 docker-compose up -d
 
-### Option 1: Running with Docker Compose (Recommended)
 
-Make sure [Docker Desktop](https://www.docker.com/) is installed and running, then execute:
+---
+
+### 2. 🙈 `.gitignore`
+
+Save this as `.gitignore` in your project root directory:
+
+```gitignore
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# SQLite Database & Storage
+*.db
+*.sqlite
+*.sqlite3
+database.db
+
+# Machine Learning Model Weights
+*.pt
+*.onnx
+*.engine
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDEs & Code Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Session Logs & Debug Artifacts
+*.log
+session_log.json
+workspace_logs.json
 
 ```bash
 docker-compose up -d
