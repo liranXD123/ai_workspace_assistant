@@ -90,6 +90,19 @@ def draw_text_clean(img, text, pos, font_scale=0.55, color=(255, 255, 255), thic
     cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
 
 
+import os
+import streamlit as st
+from langchain_core.prompts import PromptTemplate
+
+# Import LLM handlers
+try:
+    from langchain_groq import ChatGroq
+except ImportError:
+    ChatGroq = None
+
+from langchain_ollama import OllamaLLM
+
+
 def generate_end_of_session_report():
     template = """
     You are an expert AI Ergonomics & Productivity Coach.
@@ -110,20 +123,34 @@ def generate_end_of_session_report():
         template=template
     )
 
-    ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    formatted_prompt = prompt.format(
+        bad_posture_seconds=int(st.session_state.total_bad_posture),
+        phone_seconds=int(st.session_state.total_phone),
+        looking_away_seconds=int(st.session_state.total_looking_away),
+        away_from_desk_seconds=int(st.session_state.total_away)
+    )
 
     try:
-        llm = OllamaLLM(
-            model="llama3.2:3b",
-            base_url=ollama_base_url
-        )
-        formatted_prompt = prompt.format(
-            bad_posture_seconds=int(st.session_state.total_bad_posture),
-            phone_seconds=int(st.session_state.total_phone),
-            looking_away_seconds=int(st.session_state.total_looking_away),
-            away_from_desk_seconds=int(st.session_state.total_away)
-        )
-        report = llm.invoke(formatted_prompt)
+        # Check if Groq API Key is available in Streamlit Secrets or Environment Variables
+        groq_api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+
+        if groq_api_key and ChatGroq is not None:
+            # High-speed cloud LLM execution via Groq
+            llm = ChatGroq(
+                groq_api_key=groq_api_key,
+                model_name="llama-3.2-3b-preview"
+            )
+            response = llm.invoke(formatted_prompt)
+            report = response.content
+        else:
+            # Fallback to local Ollama on PC/Docker
+            ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+            llm = OllamaLLM(
+                model="llama3.2:3b",
+                base_url=ollama_base_url
+            )
+            report = llm.invoke(formatted_prompt)
+
         st.session_state.ai_report = report
 
         # Auto-save session to SQLite DB for logged-in user
@@ -138,7 +165,6 @@ def generate_end_of_session_report():
             )
     except Exception as e:
         st.session_state.ai_report = f"❌ Error generating AI report: {e}"
-
 
 # ------------------------------------------------------------------------------
 # 5. Header & Authentication View
